@@ -33,6 +33,29 @@ Welcome to **Chisfis**, a responsive Nextjs template theme tailored for Online b
 4. Run the development server using `npm run dev` or `yarn dev`.
 5. Explore the documentation for more details.
 
+## 🌐 Deploying on Netlify
+
+To deploy this project on Netlify, follow these steps:
+
+1. **Connect the Repository to Netlify**:
+   - Log in to your Netlify account.
+   - Click on "New site from Git".
+   - Select your Git provider and authenticate.
+   - Choose the repository for this project.
+
+2. **Set Build and Publish Settings**:
+   - In the "Build command" field, enter `npm run build`.
+   - In the "Publish directory" field, enter `out`.
+
+3. **Set Environment Variables**:
+   - Go to "Site settings" > "Build & deploy" > "Environment".
+   - Add the necessary environment variables as specified in the `.env.local.example` file.
+
+4. **Deploy the Site**:
+   - Click on "Deploy site" to start the deployment process.
+
+Once the deployment is complete, your site will be live on Netlify.
+
 ## 🙏 Acknowledgements
 
 A big shoutout to all the libraries, plugins, and assets that made this project possible.
