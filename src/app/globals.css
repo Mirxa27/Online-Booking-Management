@@ -1,3 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Netlify environment variables */
+NEXT_PUBLIC_NETLIFY_SITE_ID=your-netlify-site-id
+NEXT_PUBLIC_NETLIFY_AUTH_TOKEN=your-netlify-auth-token
