@@ -1,0 +1,331 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String?
+  name          String?
+  image         String?
+  role          UserRole  @default(GUEST)
+  phoneNumber   String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  properties    Property[]
+  bookings      Booking[]
+  reviews       Review[]
+  messages      Message[]
+  investments   Investment[]
+  payouts       Payout[]
+  sessions      Session[]
+  accounts      Account[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Property {
+  id                String   @id @default(cuid())
+  title             String
+  description       String   @db.Text
+  type              PropertyType
+  status            PropertyStatus @default(DRAFT)
+  featured          Boolean  @default(false)
+  
+  // Location
+  address           String
+  city              String
+  state             String?
+  country           String
+  zipCode           String?
+  latitude          Float?
+  longitude         Float?
+  
+  // Pricing
+  pricePerNight     Float
+  cleaningFee       Float?
+  serviceFee        Float?
+  currency          String   @default("USD")
+  
+  // Details
+  bedrooms          Int
+  bathrooms         Int
+  beds              Int
+  maxGuests         Int
+  squareFeet        Int?
+  
+  // Amenities stored as JSON
+  amenities         Json
+  houseRules        Json?
+  
+  // Images
+  images            PropertyImage[]
+  
+  // Relations
+  hostId            String
+  host              User     @relation(fields: [hostId], references: [id])
+  bookings          Booking[]
+  reviews           Review[]
+  availability      Availability[]
+  investments       Investment[]
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model PropertyImage {
+  id         String   @id @default(cuid())
+  url        String
+  caption    String?
+  order      Int      @default(0)
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+}
+
+model Availability {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  date       DateTime @db.Date
+  available  Boolean  @default(true)
+  price      Float?   // Custom price for specific dates
+  
+  @@unique([propertyId, date])
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  propertyId    String
+  property      Property      @relation(fields: [propertyId], references: [id])
+  guestId       String
+  guest         User          @relation(fields: [guestId], references: [id])
+  
+  checkIn       DateTime
+  checkOut      DateTime
+  guests        Int
+  
+  // Pricing
+  totalPrice    Float
+  pricePerNight Float
+  cleaningFee   Float?
+  serviceFee    Float?
+  currency      String        @default("USD")
+  
+  // Status
+  status        BookingStatus @default(PENDING)
+  
+  // Payment
+  paymentMethod PaymentMethod?
+  paymentId     String?
+  paidAt        DateTime?
+  
+  // Guest Info
+  guestName     String?
+  guestEmail    String?
+  guestPhone    String?
+  specialRequests String?     @db.Text
+  
+  // Check-in Info
+  checkInCode   String?
+  
+  // Relations
+  review        Review?
+  messages      Message[]
+  
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  bookingId   String   @unique
+  booking     Booking  @relation(fields: [bookingId], references: [id])
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id])
+  guestId     String
+  guest       User     @relation(fields: [guestId], references: [id])
+  
+  rating      Int      // 1-5
+  cleanliness Int?     // 1-5
+  accuracy    Int?     // 1-5
+  checkIn     Int?     // 1-5
+  communication Int?   // 1-5
+  location    Int?     // 1-5
+  value       Int?     // 1-5
+  
+  comment     String   @db.Text
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  content     String   @db.Text
+  senderId    String
+  sender      User     @relation(fields: [senderId], references: [id])
+  bookingId   String?
+  booking     Booking? @relation(fields: [bookingId], references: [id])
+  
+  // For AI chat
+  role        MessageRole @default(USER)
+  metadata    Json?    // Store button options, property data, etc.
+  
+  createdAt   DateTime @default(now())
+}
+
+model Investment {
+  id          String   @id @default(cuid())
+  investorId  String
+  investor    User     @relation(fields: [investorId], references: [id])
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id])
+  
+  amount      Float
+  percentage  Float    // Ownership percentage
+  status      InvestmentStatus @default(ACTIVE)
+  
+  returns     Float    @default(0)
+  lastPayout  DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Payout {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  amount      Float
+  currency    String   @default("USD")
+  type        PayoutType
+  status      PayoutStatus @default(PENDING)
+  
+  method      String?
+  transactionId String?
+  
+  processedAt DateTime?
+  createdAt   DateTime @default(now())
+}
+
+model AdminSettings {
+  id              String   @id @default(cuid())
+  aiModel         String   @default("gpt-4")
+  aiTemperature   Float    @default(0.7)
+  aiMaxTokens     Int      @default(1000)
+  
+  // Payment Settings
+  myFatoorahEnabled Boolean @default(true)
+  paypalEnabled   Boolean  @default(true)
+  
+  // Commission
+  platformFee     Float    @default(0.15) // 15%
+  
+  // Feature Flags
+  maintenanceMode Boolean  @default(false)
+  bookingEnabled  Boolean  @default(true)
+  
+  updatedAt       DateTime @updatedAt
+}
+
+// Enums
+enum UserRole {
+  GUEST
+  HOST
+  INVESTOR
+  ADMIN
+}
+
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  VILLA
+  CONDO
+  TOWNHOUSE
+  LOFT
+  STUDIO
+  ROOM
+}
+
+enum PropertyStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  MYFATOORAH
+  PAYPAL
+  STRIPE
+  CASH
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum InvestmentStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum PayoutType {
+  BOOKING_REVENUE
+  INVESTMENT_RETURN
+  REFUND
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
