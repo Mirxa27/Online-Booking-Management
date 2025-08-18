@@ -54,36 +54,58 @@ export function useChatbot() {
   }, [])
 
   const loadFeaturedProperties = async () => {
-    // Mock data for now - will be replaced with API call
-    const mockProperties: Property[] = [
-      {
-        id: '1',
-        title: 'Luxury Beachfront Villa',
-        description: 'Stunning 4-bedroom villa with panoramic ocean views, private pool, and direct beach access. Perfect for families or groups.',
-        image: 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800',
-        price: 450,
-        location: 'Miami Beach, Florida',
-        rating: 4.9,
-        bedrooms: 4,
-        bathrooms: 3,
-        maxGuests: 8,
-        amenities: ['Pool', 'Beach Access', 'WiFi', 'Kitchen', 'Parking', 'AC']
-      },
-      {
-        id: '2',
-        title: 'Modern Downtown Apartment',
-        description: 'Sleek 2-bedroom apartment in the heart of the city. Walking distance to restaurants, shopping, and entertainment.',
-        image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800',
-        price: 180,
-        location: 'New York City, NY',
-        rating: 4.7,
-        bedrooms: 2,
-        bathrooms: 2,
-        maxGuests: 4,
-        amenities: ['WiFi', 'Kitchen', 'Gym', 'Concierge', 'City View', 'Workspace']
+    try {
+      const response = await fetch('/api/properties?featured=true&limit=2')
+      const data = await response.json()
+      
+      if (data.success && data.properties) {
+        setFeaturedProperties(data.properties.map((prop: any) => ({
+          id: prop.id,
+          title: prop.title,
+          description: prop.description,
+          image: prop.images?.[0]?.url || 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800',
+          price: prop.pricePerNight,
+          location: `${prop.city}, ${prop.country}`,
+          rating: prop.averageRating || 0,
+          bedrooms: prop.bedrooms,
+          bathrooms: prop.bathrooms,
+          maxGuests: prop.maxGuests,
+          amenities: prop.amenities || []
+        })))
       }
-    ]
-    setFeaturedProperties(mockProperties)
+    } catch (error) {
+      console.error('Error loading featured properties:', error)
+      // Fallback to mock data if API fails
+      const mockProperties: Property[] = [
+        {
+          id: '1',
+          title: 'Luxury Beachfront Villa',
+          description: 'Stunning 4-bedroom villa with panoramic ocean views, private pool, and direct beach access. Perfect for families or groups.',
+          image: 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800',
+          price: 450,
+          location: 'Miami Beach, Florida',
+          rating: 4.9,
+          bedrooms: 4,
+          bathrooms: 3,
+          maxGuests: 8,
+          amenities: ['Pool', 'Beach Access', 'WiFi', 'Kitchen', 'Parking', 'AC']
+        },
+        {
+          id: '2',
+          title: 'Modern Downtown Apartment',
+          description: 'Sleek 2-bedroom apartment in the heart of the city. Walking distance to restaurants, shopping, and entertainment.',
+          image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800',
+          price: 180,
+          location: 'New York City, NY',
+          rating: 4.7,
+          bedrooms: 2,
+          bathrooms: 2,
+          maxGuests: 4,
+          amenities: ['WiFi', 'Kitchen', 'Gym', 'Concierge', 'City View', 'Workspace']
+        }
+      ]
+      setFeaturedProperties(mockProperties)
+    }
   }
 
   const sendMessage = async (text: string) => {
@@ -95,12 +117,59 @@ export function useChatbot() {
     setMessages(prev => [...prev, userMessage])
     setIsTyping(true)
 
-    // Simulate API call to OpenAI
-    setTimeout(() => {
+    try {
+      // Call actual chat API
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: text,
+          sessionId: localStorage.getItem('chatSessionId') || undefined
+        })
+      })
+
+      const data = await response.json()
+      
+      // Store session ID
+      if (data.sessionId) {
+        localStorage.setItem('chatSessionId', data.sessionId)
+      }
+
+      // Update featured properties if returned
+      if (data.properties && data.properties.length > 0) {
+        setFeaturedProperties(data.properties.map((prop: any) => ({
+          id: prop.id,
+          title: prop.title,
+          description: prop.description,
+          image: prop.images?.[0]?.url || 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800',
+          price: prop.pricePerNight,
+          location: `${prop.city}, ${prop.country}`,
+          rating: prop.averageRating || 4.5,
+          bedrooms: prop.bedrooms,
+          bathrooms: prop.bathrooms,
+          maxGuests: prop.maxGuests,
+          amenities: prop.amenities || []
+        })))
+      }
+
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: data.message,
+        timestamp: new Date(),
+        buttons: data.buttons
+      }
+      
+      setMessages(prev => [...prev, assistantMessage])
+    } catch (error) {
+      console.error('Chat error:', error)
+      // Fallback to generated response
       const response = generateResponse(text)
       setMessages(prev => [...prev, response])
+    } finally {
       setIsTyping(false)
-    }, 1500)
+    }
   }
 
   const generateResponse = (userInput: string): Message => {
