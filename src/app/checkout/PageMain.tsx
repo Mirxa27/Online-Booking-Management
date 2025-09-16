@@ -2,7 +2,8 @@
 
 import { Tab } from "@headlessui/react";
 import { PencilSquareIcon } from "@heroicons/react/24/outline";
-import React, { FC, Fragment, useState } from "react";
+import React, { FC, Fragment, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import visaPng from "@/images/vis.png";
 import mastercardPng from "@/images/mastercard.svg";
 import Input from "@/shared/Input";
@@ -21,19 +22,61 @@ export interface CheckOutPagePageMainProps {
   className?: string;
 }
 
+const NIGHTLY_RATE = 119; // Assuming the same rate for consistency, or pass it via URL too
+
 const CheckOutPagePageMain: FC<CheckOutPagePageMainProps> = ({
   className = "",
 }) => {
-  const [startDate, setStartDate] = useState<Date | null>(
-    new Date("2023/02/06")
-  );
-  const [endDate, setEndDate] = useState<Date | null>(new Date("2023/02/23"));
+  const searchParams = useSearchParams();
 
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
   const [guests, setGuests] = useState<GuestsObject>({
-    guestAdults: 2,
-    guestChildren: 1,
-    guestInfants: 1,
+    guestAdults: 1,
+    guestChildren: 0,
+    guestInfants: 0,
   });
+  const [price, setPrice] = useState<number | null>(null);
+  const [numberOfNights, setNumberOfNights] = useState<number>(0);
+
+  useEffect(() => {
+    const paramStartDate = searchParams.get("startDate");
+    const paramEndDate = searchParams.get("endDate");
+    const paramAdults = searchParams.get("adults");
+    const paramChildren = searchParams.get("children");
+    const paramInfants = searchParams.get("infants");
+    const paramPrice = searchParams.get("price");
+    const paramNights = searchParams.get("nights");
+
+    if (paramStartDate) {
+      setStartDate(new Date(paramStartDate));
+    }
+    if (paramEndDate) {
+      setEndDate(new Date(paramEndDate));
+    }
+    if (paramPrice) {
+      setPrice(parseFloat(paramPrice));
+    }
+    if (paramNights) {
+      setNumberOfNights(parseInt(paramNights, 10));
+    }
+
+    const newGuests: GuestsObject = {};
+    if (paramAdults) {
+      newGuests.guestAdults = parseInt(paramAdults, 10);
+    }
+    if (paramChildren) {
+      newGuests.guestChildren = parseInt(paramChildren, 10);
+    }
+    if (paramInfants) {
+      newGuests.guestInfants = parseInt(paramInfants, 10);
+    }
+    if (Object.keys(newGuests).length > 0) {
+      setGuests(currentGuests => ({...currentGuests, ...newGuests}));
+    }
+
+  }, [searchParams]);
+
 
   const renderSidebar = () => {
     return (
@@ -67,19 +110,29 @@ const CheckOutPagePageMain: FC<CheckOutPagePageMainProps> = ({
         </div>
         <div className="flex flex-col space-y-4">
           <h3 className="text-2xl font-semibold">Price detail</h3>
-          <div className="flex justify-between text-neutral-6000 dark:text-neutral-300">
-            <span>$19 x 3 day</span>
-            <span>$57</span>
-          </div>
-          <div className="flex justify-between text-neutral-6000 dark:text-neutral-300">
-            <span>Service charge</span>
-            <span>$0</span>
-          </div>
-
-          <div className="border-b border-neutral-200 dark:border-neutral-700"></div>
-          <div className="flex justify-between font-semibold">
-            <span>Total</span>
-            <span>$57</span>
+          {price !== null && numberOfNights > 0 ? (
+            <>
+              <div className="flex justify-between text-neutral-6000 dark:text-neutral-300">
+                <span>
+                  ${(price / numberOfNights).toFixed(0)} x {numberOfNights} night{numberOfNights > 1 ? "s" : ""}
+                </span>
+                <span>${price}</span>
+              </div>
+              <div className="flex justify-between text-neutral-6000 dark:text-neutral-300">
+                <span>Service charge</span>
+                <span>$0</span>
+              </div>
+              <div className="border-b border-neutral-200 dark:border-neutral-700"></div>
+              <div className="flex justify-between font-semibold">
+                <span>Total</span>
+                <span>${price}</span>
+              </div>
+            </>
+          ) : (
+            <div className="flex justify-between text-neutral-6000 dark:text-neutral-300">
+              <span>Loading price...</span>
+            </div>
+          )}
           </div>
         </div>
       </div>
@@ -120,15 +173,18 @@ const CheckOutPagePageMain: FC<CheckOutPagePageMainProps> = ({
                   <div className="flex flex-col">
                     <span className="text-sm text-neutral-400">Date</span>
                     <span className="mt-1.5 text-lg font-semibold">
-                      {converSelectedDateToString([startDate, endDate])}
+                      {startDate && endDate ? converSelectedDateToString([startDate, endDate]) : "Select dates"}
                     </span>
                   </div>
                   <PencilSquareIcon className="w-6 h-6 text-neutral-6000 dark:text-neutral-400" />
                 </button>
               )}
+              selectedDate={startDate}
+              selectedDate2={endDate}
             />
 
             <ModalSelectGuests
+              defaultGuests={guests}
               renderChildren={({ openModal }) => (
                 <button
                   type="button"
@@ -140,9 +196,9 @@ const CheckOutPagePageMain: FC<CheckOutPagePageMainProps> = ({
                     <span className="mt-1.5 text-lg font-semibold">
                       <span className="line-clamp-1">
                         {`${
-                          (guests.guestAdults || 0) +
-                          (guests.guestChildren || 0)
-                        } Guests, ${guests.guestInfants || 0} Infants`}
+                          (guests?.guestAdults || 0) + // Use optional chaining and default value
+                          (guests?.guestChildren || 0)
+                        } Guests, ${guests?.guestInfants || 0} Infants`}
                       </span>
                     </span>
                   </div>
@@ -204,14 +260,18 @@ const CheckOutPagePageMain: FC<CheckOutPagePageMainProps> = ({
                     <Label>Card holder </Label>
                     <Input defaultValue="JOHN DOE" />
                   </div>
-                  <div className="flex space-x-5  ">
+                  <div className="flex space-x-5">
                     <div className="flex-1 space-y-1">
-                      <Label>Expiration date </Label>
-                      <Input type="date" defaultValue="MM/YY" />
+                      <Label>Expiration Month (MM)</Label>
+                      <Input type="text" placeholder="MM" maxLength={2} />
                     </div>
                     <div className="flex-1 space-y-1">
-                      <Label>CVC </Label>
-                      <Input />
+                      <Label>Expiration Year (YY)</Label>
+                      <Input type="text" placeholder="YY" maxLength={2} />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <Label>CVC</Label>
+                      <Input placeholder="CVC" />
                     </div>
                   </div>
                   <div className="space-y-1">
@@ -242,7 +302,7 @@ const CheckOutPagePageMain: FC<CheckOutPagePageMainProps> = ({
               </Tab.Panels>
             </Tab.Group>
             <div className="pt-8">
-              <ButtonPrimary href={"/pay-done"}>Confirm and pay</ButtonPrimary>
+              <ButtonPrimary href={ price ? "/pay-done" : undefined } disabled={!price}>Confirm and pay</ButtonPrimary>
             </div>
           </div>
         </div>

@@ -9,30 +9,41 @@ import { GuestsObject } from "@/app/(client-components)/type";
 
 export interface GuestsInputProps {
   className?: string;
+  onGuestsChange?: (guestData: GuestsObject) => void;
 }
 
-const GuestsInput: FC<GuestsInputProps> = ({ className = "flex-1" }) => {
+const GuestsInput: FC<GuestsInputProps> = ({
+  className = "flex-1",
+  onGuestsChange,
+}) => {
   const [guestAdultsInputValue, setGuestAdultsInputValue] = useState(2);
   const [guestChildrenInputValue, setGuestChildrenInputValue] = useState(1);
   const [guestInfantsInputValue, setGuestInfantsInputValue] = useState(1);
 
   const handleChangeData = (value: number, type: keyof GuestsObject) => {
-    let newValue = {
-      guestAdults: guestAdultsInputValue,
-      guestChildren: guestChildrenInputValue,
-      guestInfants: guestInfantsInputValue,
+    let newValue: GuestsObject = {
+      guestAdults: type === "guestAdults" ? value : guestAdultsInputValue,
+      guestChildren: type === "guestChildren" ? value : guestChildrenInputValue,
+      guestInfants: type === "guestInfants" ? value : guestInfantsInputValue,
     };
+
     if (type === "guestAdults") {
       setGuestAdultsInputValue(value);
-      newValue.guestAdults = value;
     }
     if (type === "guestChildren") {
       setGuestChildrenInputValue(value);
-      newValue.guestChildren = value;
     }
     if (type === "guestInfants") {
       setGuestInfantsInputValue(value);
-      newValue.guestInfants = value;
+    }
+
+    if (onGuestsChange) {
+      // Ensure all properties are set, even if they are the previous state values
+      onGuestsChange({
+        guestAdults: type === "guestAdults" ? value : guestAdultsInputValue,
+        guestChildren: type === "guestChildren" ? value : guestChildrenInputValue,
+        guestInfants: type === "guestInfants" ? value : guestInfantsInputValue,
+      });
     }
   };
 
@@ -69,6 +80,13 @@ const GuestsInput: FC<GuestsInputProps> = ({ className = "flex-1" }) => {
                     setGuestAdultsInputValue(0);
                     setGuestChildrenInputValue(0);
                     setGuestInfantsInputValue(0);
+                    if (onGuestsChange) {
+                      onGuestsChange({
+                        guestAdults: 0,
+                        guestChildren: 0,
+                        guestInfants: 0,
+                      });
+                    }
                   }}
                 />
               )}

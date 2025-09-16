@@ -1,9 +1,10 @@
 "use client";
 
-import React, { FC, Fragment, useState } from "react";
+import React, { FC, Fragment, useState, useEffect } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { ArrowRightIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
 import CommentListing from "@/components/CommentListing";
+import { GuestsObject } from "@/app/(client-components)/type";
 import FiveStartIconForRate from "@/components/FiveStartIconForRate";
 import StartRating from "@/components/StartRating";
 import Avatar from "@/shared/Avatar";
@@ -24,13 +25,61 @@ import { Route } from "next";
 
 export interface ListingStayDetailPageProps {}
 
+const NIGHTLY_RATE = 119; // Define the nightly rate
+
 const ListingStayDetailPage: FC<ListingStayDetailPageProps> = ({}) => {
-  //
+  const [selectedStartDate, setSelectedStartDate] = useState<Date | null>(null);
+  const [selectedEndDate, setSelectedEndDate] = useState<Date | null>(null);
+  const [selectedGuests, setSelectedGuests] = useState<GuestsObject>({
+    guestAdults: 1,
+    guestChildren: 0,
+    guestInfants: 0,
+  });
+  const [numberOfNights, setNumberOfNights] = useState<number>(0);
+  const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null);
 
   let [isOpenModalAmenities, setIsOpenModalAmenities] = useState(false);
 
   const thisPathname = usePathname();
   const router = useRouter();
+
+  const handleDatesChange = (dates: [Date | null, Date | null]) => {
+    const [start, end] = dates;
+    setSelectedStartDate(start);
+    setSelectedEndDate(end);
+  };
+
+  const handleGuestsChange = (guestData: GuestsObject) => {
+    setSelectedGuests(guestData);
+  };
+
+  const calculateBookingPrice = (
+    startDate: Date | null,
+    endDate: Date | null
+  ): number | null => {
+    if (!startDate || !endDate) {
+      return null;
+    }
+    const timeDiff = endDate.getTime() - startDate.getTime();
+    if (timeDiff < 0) {
+      return null; // Or handle error, end date before start date
+    }
+    const nights = Math.max(1, Math.ceil(timeDiff / (1000 * 3600 * 24)));
+    return NIGHTLY_RATE * nights;
+  };
+
+  useEffect(() => {
+    const price = calculateBookingPrice(selectedStartDate, selectedEndDate);
+    setCalculatedPrice(price);
+
+    if (selectedStartDate && selectedEndDate) {
+      const timeDiff = selectedEndDate.getTime() - selectedStartDate.getTime();
+      const nights = Math.max(1, Math.ceil(timeDiff / (1000 * 3600 * 24)));
+      setNumberOfNights(nights);
+    } else {
+      setNumberOfNights(0);
+    }
+  }, [selectedStartDate, selectedEndDate]);
 
   function closeModalAmenities() {
     setIsOpenModalAmenities(false);
@@ -517,7 +566,7 @@ const ListingStayDetailPage: FC<ListingStayDetailPageProps> = ({}) => {
         {/* PRICE */}
         <div className="flex justify-between">
           <span className="text-3xl font-semibold">
-            $119
+            ${NIGHTLY_RATE}
             <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">
               /night
             </span>
@@ -527,30 +576,55 @@ const ListingStayDetailPage: FC<ListingStayDetailPageProps> = ({}) => {
 
         {/* FORM */}
         <form className="flex flex-col border border-neutral-200 dark:border-neutral-700 rounded-3xl ">
-          <StayDatesRangeInput className="flex-1 z-[11]" />
+          <StayDatesRangeInput
+            className="flex-1 z-[11]"
+            onDatesChange={handleDatesChange}
+          />
           <div className="w-full border-b border-neutral-200 dark:border-neutral-700"></div>
-          <GuestsInput className="flex-1" />
+          <GuestsInput
+            className="flex-1"
+            onGuestsChange={handleGuestsChange}
+          />
         </form>
 
         {/* SUM */}
         <div className="flex flex-col space-y-4">
-          <div className="flex justify-between text-neutral-6000 dark:text-neutral-300">
-            <span>$119 x 3 night</span>
-            <span>$357</span>
-          </div>
-          <div className="flex justify-between text-neutral-6000 dark:text-neutral-300">
-            <span>Service charge</span>
-            <span>$0</span>
-          </div>
-          <div className="border-b border-neutral-200 dark:border-neutral-700"></div>
-          <div className="flex justify-between font-semibold">
-            <span>Total</span>
-            <span>$199</span>
-          </div>
+          {calculatedPrice !== null && numberOfNights > 0 ? (
+            <>
+              <div className="flex justify-between text-neutral-6000 dark:text-neutral-300">
+                <span>
+                  ${NIGHTLY_RATE} x {numberOfNights} night{numberOfNights > 1 ? "s" : ""}
+                </span>
+                <span>${calculatedPrice}</span>
+              </div>
+              <div className="flex justify-between text-neutral-6000 dark:text-neutral-300">
+                <span>Service charge</span>
+                <span>$0</span>
+              </div>
+              <div className="border-b border-neutral-200 dark:border-neutral-700"></div>
+              <div className="flex justify-between font-semibold">
+                <span>Total</span>
+                <span>${calculatedPrice}</span>
+              </div>
+            </>
+          ) : (
+            <div className="flex justify-between text-neutral-6000 dark:text-neutral-300">
+              <span>Select dates to see price</span>
+            </div>
+          )}
         </div>
 
         {/* SUBMIT */}
-        <ButtonPrimary href={"/checkout"}>Reserve</ButtonPrimary>
+        <ButtonPrimary
+          href={
+            selectedStartDate && selectedEndDate && calculatedPrice
+              ? `/checkout?startDate=${selectedStartDate.toISOString().split('T')[0]}&endDate=${selectedEndDate.toISOString().split('T')[0]}&adults=${selectedGuests.guestAdults || 1}&children=${selectedGuests.guestChildren || 0}&infants=${selectedGuests.guestInfants || 0}&price=${calculatedPrice}&nights=${numberOfNights}`
+              : "/checkout"
+          }
+          disabled={!calculatedPrice || !selectedStartDate || !selectedEndDate}
+        >
+          Reserve
+        </ButtonPrimary>
       </div>
     );
   };
